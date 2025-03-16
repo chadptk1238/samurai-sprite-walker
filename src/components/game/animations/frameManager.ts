@@ -42,6 +42,12 @@ export const updateAttackFrames = (
   animationStateRef: React.RefObject<AnimationState>,
   onAnimationComplete?: () => void
 ): number => {
+  // Cancel any ongoing animations first
+  if (animationStateRef.current?.animationFrameId) {
+    cancelAnimationFrame(animationStateRef.current.animationFrameId);
+    animationStateRef.current.animationFrameId = null;
+  }
+
   const currentAnimData = animations[currentAnimation];
   const totalFrames = currentAnimData.frames;
   const frameDuration = currentAnimData.duration / totalFrames;
@@ -51,32 +57,33 @@ export const updateAttackFrames = (
   // Reset frame to 0 at the start of the animation
   setFrame(0);
   
-  let frameStartTime = Date.now();
+  // Track the animation progress with these variables
+  let startTime = performance.now();
+  let lastFrameTime = performance.now();
   let currentFrameIndex = 0;
+  let animationRunning = true;
   
-  // Set the isAttacking flag
-  if (animationStateRef.current) {
-    animationStateRef.current.isAttacking = true;
-  }
-  
-  const updateAttackFrame = () => {
-    const now = Date.now();
-    const elapsedSinceFrameStart = now - frameStartTime;
+  const updateAttackFrame = (timestamp: number) => {
+    if (!animationRunning) return;
     
-    // If we've spent enough time on the current frame, move to the next one
+    const now = timestamp;
+    const elapsedSinceFrameStart = now - lastFrameTime;
+    
+    // Check if we've spent enough time on the current frame
     if (elapsedSinceFrameStart >= frameDuration) {
-      // Increment frame index
+      // Increment the frame index
       currentFrameIndex++;
+      lastFrameTime = now;
       
       console.log(`Attack animation advancing to frame ${currentFrameIndex} of ${totalFrames}`);
       
-      // If we've completed all frames, finish the animation
+      // If we've gone through all frames, finish the animation
       if (currentFrameIndex >= totalFrames) {
         console.log('Attack animation complete, calling callback');
         
-        // Reset isAttacking flag and clear animation frame ID
+        animationRunning = false;
+        
         if (animationStateRef.current) {
-          animationStateRef.current.isAttacking = false;
           animationStateRef.current.animationFrameId = null;
         }
         
@@ -87,22 +94,25 @@ export const updateAttackFrames = (
         return;
       }
       
-      // Update the frame and reset frame start time
+      // Update the frame display
       setFrame(currentFrameIndex);
-      frameStartTime = now;
     }
     
-    // Continue the animation only if it hasn't been canceled
-    if (animationStateRef.current?.animationFrameId) {
-      animationStateRef.current.animationFrameId = requestAnimationFrame(updateAttackFrame);
+    // Continue the animation loop
+    if (animationRunning) {
+      const nextFrameId = requestAnimationFrame(updateAttackFrame);
+      if (animationStateRef.current) {
+        animationStateRef.current.animationFrameId = nextFrameId;
+      }
     }
   };
   
-  // Start the attack animation
+  // Start the animation
   const frameId = requestAnimationFrame(updateAttackFrame);
   if (animationStateRef.current) {
     animationStateRef.current.animationFrameId = frameId;
   }
+  
   return frameId;
 };
 
@@ -113,12 +123,18 @@ export const updateJumpFrames = (
   animationStateRef: React.RefObject<AnimationState>,
   isWalking: boolean
 ): number => {
-  const jumpStartTime = animationStateRef.current?.animationStartTime || Date.now();
+  // Cancel any ongoing animations first
+  if (animationStateRef.current?.animationFrameId) {
+    cancelAnimationFrame(animationStateRef.current.animationFrameId);
+    animationStateRef.current.animationFrameId = null;
+  }
+
+  const jumpStartTime = performance.now();
   const jumpDuration = animations.jump.duration;
   const maxJumpHeight = 50; // pixels
   
   const updateJump = (timestamp: number) => {
-    const elapsed = Date.now() - jumpStartTime;
+    const elapsed = timestamp - jumpStartTime;
     const progress = Math.min(elapsed / jumpDuration, 1);
     
     // Parabolic jump curve (0 at start, 0 at end, max height in middle)
@@ -127,9 +143,12 @@ export const updateJumpFrames = (
     
     setJumpHeight(newHeight);
     
-    if (progress < 1 && animationStateRef.current?.animationFrameId) {
-      animationStateRef.current.animationFrameId = requestAnimationFrame(updateJump);
-      return animationStateRef.current.animationFrameId;
+    if (progress < 1) {
+      const nextFrameId = requestAnimationFrame(updateJump);
+      if (animationStateRef.current) {
+        animationStateRef.current.animationFrameId = nextFrameId;
+      }
+      return nextFrameId;
     } else {
       // End jump animation
       if (animationStateRef.current) {
