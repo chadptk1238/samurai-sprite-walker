@@ -1,5 +1,5 @@
 
-import Game from '@/components/Game';
+import Game from '@/components/game/Game';
 
 const Index = () => {
   return (
