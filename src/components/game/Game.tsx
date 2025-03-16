@@ -25,7 +25,21 @@ const Game: React.FC = () => {
     triggerAnimation 
   } = useAnimationState();
   
-  // Fix the order - declare movement state first before using it
+  // Input handlers - initialized with empty functions first
+  const { 
+    keysPressed, 
+    handleTouchStart, 
+    handleTouchEnd, 
+    handleActionButton,
+    setIsWalking: updateWalkingState 
+  } = useInputHandlers({
+    triggerAnimation,
+    animationCooldown,
+    animation,
+    setIsWalking: () => {} // Temporary placeholder
+  });
+  
+  // Movement state - now with proper keysPressed reference
   const { 
     position, 
     direction, 
@@ -37,34 +51,14 @@ const Game: React.FC = () => {
     movementSpeed: MOVEMENT_SPEED,
     animation,
     animationCooldown,
-    keysPressed: {} // Initialize with empty object, will update after useInputHandlers
+    keysPressed
   });
   
-  // Input handlers - use setIsWalking after it's declared
-  const { 
-    keysPressed, 
-    handleTouchStart, 
-    handleTouchEnd, 
-    handleActionButton 
-  } = useInputHandlers({
-    triggerAnimation,
-    animationCooldown,
-    animation,
-    setIsWalking
-  });
-  
-  // Update keysPressed in useMovement
+  // Connect the setIsWalking from useMovement to useInputHandlers
   useEffect(() => {
-    // Update the keysPressed in the movement hook
-    useMovement({
-      gameWidth: GAME_WIDTH,
-      characterScale: CHARACTER_SCALE,
-      movementSpeed: MOVEMENT_SPEED,
-      animation,
-      animationCooldown,
-      keysPressed
-    });
-  }, [keysPressed, animation, animationCooldown]);
+    // Update the setIsWalking function in useInputHandlers
+    updateWalkingState(setIsWalking);
+  }, [setIsWalking, updateWalkingState]);
   
   // Show welcome toast on initial load
   useEffect(() => {

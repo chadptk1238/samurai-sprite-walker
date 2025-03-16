@@ -1,10 +1,11 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AnimationType } from './useAnimationState';
 
 interface UseInputHandlersProps {
-  triggerAnimation: (animType: any) => void;
+  triggerAnimation: (animType: AnimationType) => void;
   animationCooldown: boolean;
-  animation: string;
+  animation: AnimationType;
   setIsWalking: (walking: boolean) => void;
 }
 
@@ -12,9 +13,15 @@ export function useInputHandlers({
   triggerAnimation,
   animationCooldown,
   animation,
-  setIsWalking
+  setIsWalking: initialSetIsWalking
 }: UseInputHandlersProps) {
   const [keysPressed, setKeysPressed] = useState<Record<string, boolean>>({});
+  const setIsWalkingRef = useRef(initialSetIsWalking);
+  
+  // Function to update the setIsWalking reference
+  const updateWalkingState = useCallback((newSetIsWalking: (walking: boolean) => void) => {
+    setIsWalkingRef.current = newSetIsWalking;
+  }, []);
 
   // Handle keyboard controls
   useEffect(() => {
@@ -50,9 +57,11 @@ export function useInputHandlers({
       
       // Return to idle when movement keys are released
       if (['ArrowLeft', 'ArrowRight', 'a', 'd'].includes(e.key)) {
-        if (!keysPressed['ArrowLeft'] && !keysPressed['ArrowRight'] && 
-            !keysPressed['a'] && !keysPressed['d']) {
-          setIsWalking(false);
+        // Check if any movement keys are still pressed
+        const updatedKeys = { ...keysPressed, [e.key]: false };
+        if (!updatedKeys['ArrowLeft'] && !updatedKeys['ArrowRight'] && 
+            !updatedKeys['a'] && !updatedKeys['d']) {
+          setIsWalkingRef.current(false);
         }
       }
     };
@@ -64,7 +73,7 @@ export function useInputHandlers({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [keysPressed, animationCooldown, triggerAnimation, animation, setIsWalking]);
+  }, [keysPressed, animationCooldown, triggerAnimation, animation]);
 
   // Mobile control handlers
   const handleTouchStart = useCallback((dir: 'left' | 'right') => {
@@ -107,6 +116,7 @@ export function useInputHandlers({
     keysPressed,
     handleTouchStart,
     handleTouchEnd,
-    handleActionButton
+    handleActionButton,
+    setIsWalking: updateWalkingState
   };
 }
