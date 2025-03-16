@@ -42,6 +42,7 @@ export const updateAttackFrames = (
   // Reset frame to 0 at the start of the animation
   setFrame(0);
   
+  // Use an immediate variable in closure to track frames
   let frameCount = 0;
   let lastFrameTime = 0;
   
@@ -51,17 +52,19 @@ export const updateAttackFrames = (
     const elapsed = timestamp - lastFrameTime;
     
     if (elapsed > frameInterval) {
-      // Increment frame count
+      // Increment frame count and update timestamp
       frameCount++;
+      lastFrameTime = timestamp;
       
-      // Update the visible frame
+      // Update the visible frame (ensure we don't exceed max frames)
       const newFrame = Math.min(frameCount, currentAnimData.frames - 1);
       setFrame(newFrame);
       
-      lastFrameTime = timestamp;
+      console.log(`Attack frame: ${newFrame}, frameCount: ${frameCount}, totalFrames: ${currentAnimData.frames}`);
       
       // Check if we've completed all frames
       if (frameCount >= currentAnimData.frames) {
+        console.log('Attack animation complete, calling callback');
         if (onAnimationComplete) {
           onAnimationComplete();
         }
@@ -69,9 +72,11 @@ export const updateAttackFrames = (
       }
     }
     
+    // Continue animation
     return requestAnimationFrame(updateAttackFrame);
   };
   
+  // Start the animation immediately
   return requestAnimationFrame(updateAttackFrame);
 };
 
