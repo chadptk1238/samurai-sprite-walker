@@ -41,7 +41,7 @@ const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale }) => 
         left: `${x}px`,
         transform: `scaleX(${direction === 'left' ? -1 : 1}) scale(${scale})`,
         transformOrigin: 'bottom center',
-        backgroundImage: 'url("/lovable-uploads/7c92fe0d-ef0e-4f4b-a40d-59ddcb1e32a2.png")',
+        backgroundImage: 'url("/lovable-uploads/a953a947-c3ee-4308-ae92-0fdf9828dca8.png")',
         backgroundPosition: `-${frame * 32}px 0px`, // Position is based on current frame (first row)
         width: '32px',
         height: '32px',

@@ -101,17 +101,21 @@ const Game: React.FC = () => {
       <div className="w-full max-w-2xl relative overflow-hidden rounded-lg shadow-lg mb-4">
         {/* Game area with background */}
         <div 
-          className="relative bg-game-bg"
+          className="relative"
           style={{ 
             width: '100%', 
             height: `${GAME_HEIGHT}px`,
+            backgroundImage: 'linear-gradient(to bottom, #87CEEB, #ADD8E6)',
             overflow: 'hidden'
           }}
         >
           {/* Ground */}
           <div 
-            className="absolute bottom-0 left-0 right-0 bg-game-ground"
-            style={{ height: '50px' }}
+            className="absolute bottom-0 left-0 right-0"
+            style={{ 
+              height: '50px',
+              backgroundColor: '#8B4513'
+            }}
           ></div>
           
           {/* Samurai character */}
