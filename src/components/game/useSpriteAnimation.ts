@@ -24,9 +24,16 @@ export const useSpriteAnimation = (
     setAnimationTimer
   } = useAnimationStateManager(initialAnimation);
 
+  // Flag to track if an animation is currently running
+  const isAnimatingRef = useRef(false);
+
   // Callback for when attack animation completes
   const handleAttackComplete = useCallback(() => {
     console.log('Attack animation completed, returning to', isWalking ? 'walk' : 'idle');
+    
+    // Clear the animating flag
+    isAnimatingRef.current = false;
+    
     clearAnimations();
     
     if (isWalking) {
@@ -45,15 +52,24 @@ export const useSpriteAnimation = (
   const updateAnimation = useCallback((animation: AnimationType) => {
     console.log(`updateAnimation called with: ${animation}, current: ${animationStateRef.current?.currentAnimation}`);
     
-    // If we're already in the requested animation, check if we can restart it
-    const canRestart = (animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack') && 
-                       !animationStateRef.current?.isAttacking && // Don't restart if already attacking
-                       !animationStateRef.current?.isJumping;     // Don't restart if already jumping
+    // Skip if we're already animating an attack or jump and trying to start a new one
+    const isActionAnimation = animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack';
     
-    // Skip if the animation hasn't changed and isn't restartable
-    if (animation === animationStateRef.current?.currentAnimation && !canRestart) {
+    // Skip if already in action animation
+    if (isActionAnimation && isAnimatingRef.current) {
+      console.log('Already animating, skipping new animation request');
+      return;
+    }
+    
+    // Skip if the animation hasn't changed and isn't an action that should be restartable
+    if (animation === animationStateRef.current?.currentAnimation && !isActionAnimation) {
       console.log('Animation unchanged and not restartable, skipping');
       return;
+    }
+    
+    // Set animating flag for action animations
+    if (isActionAnimation) {
+      isAnimatingRef.current = true;
     }
     
     // Clear any existing animation
@@ -67,7 +83,7 @@ export const useSpriteAnimation = (
     }
     
     // For attack animations, always start from the beginning
-    if ((animation === 'attack' || animation === 'thrust' || animation === 'downAttack')) {
+    if (animation === 'attack' || animation === 'thrust' || animation === 'downAttack') {
       console.log('Starting attack animation from beginning');
       setCurrentAnimation(animation);
       setFrame(0);
@@ -88,17 +104,19 @@ export const useSpriteAnimation = (
       setFrame(0);
     }
     
-    // Handle walking animation specifically
-    if (isWalking && !animationStateRef.current?.isJumping && 
-        !['attack', 'thrust', 'downAttack'].includes(animation) && 
-        currentAnimation !== 'walk') {
-      console.log('Switching to walk animation due to isWalking');
-      setCurrentAnimation('walk');
-      setFrame(0);
-    } else if (!isWalking && currentAnimation === 'walk') {
-      console.log('Switching to idle animation since not walking');
-      setCurrentAnimation('idle');
-      setFrame(0);
+    // Prevent walking animation from taking precedence when action animations are triggered
+    if (!isActionAnimation) {
+      // Handle walking animation specifically
+      if (isWalking && !animationStateRef.current?.isJumping && 
+          currentAnimation !== 'walk') {
+        console.log('Switching to walk animation due to isWalking');
+        setCurrentAnimation('walk');
+        setFrame(0);
+      } else if (!isWalking && currentAnimation === 'walk') {
+        console.log('Switching to idle animation since not walking');
+        setCurrentAnimation('idle');
+        setFrame(0);
+      }
     }
   }, [isWalking, currentAnimation, setCurrentAnimation, setFrame, clearAnimations, animationStateRef]);
 
@@ -134,6 +152,10 @@ export const useSpriteAnimation = (
     // Cleanup function
     return () => {
       console.log('Cleaning up animation effect');
+      
+      // Don't clear animating flag here, as we want it to persist across effect cleanups
+      // for action animations
+      
       clearAnimations();
     };
   }, [
