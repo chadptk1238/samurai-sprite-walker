@@ -1,4 +1,3 @@
-
 import { animations } from '../animationUtils';
 import { AnimationType } from '../useAnimationState';
 import { AnimationState } from '../types/animationTypes';
@@ -45,41 +44,40 @@ export const updateAttackFrames = (
   // Reset frame to 0 at the start of the animation
   setFrame(0);
   
-  let startTime: number | null = null;
-  let frameIndex = 0;
+  let frameStartTime = Date.now();
+  let currentFrameIndex = 0;
   
-  const tick = (timestamp: number) => {
-    if (!startTime) startTime = timestamp;
-    const elapsed = timestamp - startTime;
+  const updateAttackFrame = () => {
+    const now = Date.now();
+    const elapsedSinceFrameStart = now - frameStartTime;
     
-    // Calculate which frame we should be on based on elapsed time
-    const expectedFrame = Math.min(Math.floor(elapsed / frameDuration), totalFrames - 1);
-    
-    // Only update the frame if it's changed
-    if (expectedFrame > frameIndex) {
-      frameIndex = expectedFrame;
-      setFrame(frameIndex);
-      console.log(`Attack animation frame updated to: ${frameIndex}`);
+    // If we've spent enough time on the current frame, move to the next one
+    if (elapsedSinceFrameStart >= frameDuration) {
+      currentFrameIndex++;
+      setFrame(currentFrameIndex);
+      frameStartTime = now;
+      
+      console.log(`Attack animation advancing to frame ${currentFrameIndex}`);
+      
+      // If we've reached the last frame, trigger completion callback after a short delay
+      if (currentFrameIndex >= totalFrames - 1) {
+        console.log('Attack animation reached last frame, will complete soon');
+        setTimeout(() => {
+          console.log('Attack animation complete, calling callback');
+          if (onAnimationComplete) {
+            onAnimationComplete();
+          }
+        }, frameDuration);
+        return 0; // Stop the animation loop
+      }
     }
     
-    // Continue animation if we haven't shown all frames yet
-    if (frameIndex < totalFrames - 1) {
-      return requestAnimationFrame(tick);
-    } else {
-      // We've completed all frames, wait a little bit at the last frame
-      // before calling the completion callback
-      setTimeout(() => {
-        console.log('Attack animation complete, calling callback');
-        if (onAnimationComplete) {
-          onAnimationComplete();
-        }
-      }, frameDuration / 2);
-      return 0;
-    }
+    // Continue the animation
+    return requestAnimationFrame(updateAttackFrame);
   };
   
-  // Start immediately
-  return requestAnimationFrame(tick);
+  // Start the attack animation
+  return requestAnimationFrame(updateAttackFrame);
 };
 
 // Helper function to handle frame updates for jump animation
