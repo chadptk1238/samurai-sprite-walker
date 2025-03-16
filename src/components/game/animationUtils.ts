@@ -8,7 +8,6 @@ export const animations = {
   middleParry: { row: 1, frames: 1, startFrame: 0, duration: 400 },
   upParry: { row: 1, frames: 1, startFrame: 1, duration: 400 },
   downParry: { row: 1, frames: 1, startFrame: 2, duration: 400 },
-  // Ensure attack has enough time per frame
   attack: { row: 2, frames: 4, startFrame: 0, duration: 800 }, // Increased duration
   thrust: { row: 3, frames: 1, startFrame: 0, duration: 400 },
   downAttack: { row: 3, frames: 1, startFrame: 1, duration: 400 },
@@ -31,7 +30,43 @@ export const getBackgroundPosition = (currentAnimation: AnimationType, frame: nu
   const x = frameIndex * 32; // Each frame is 32px wide
   const y = animData.row * 32; // Each row is 32px tall
   
-  console.log(`Animation: ${currentAnimation}, Frame: ${frame}, Position: -${x}px -${y}px`);
-  
   return `-${x}px -${y}px`;
+};
+
+// Calculate the current frame based on time elapsed
+export const calculateFrame = (
+  animation: AnimationType,
+  startTime: number
+): number => {
+  const animData = animations[animation];
+  
+  // If animation has only one frame or no duration, it's static
+  if (animData.frames <= 1 || animData.duration <= 0) {
+    return 0;
+  }
+  
+  const elapsed = Date.now() - startTime;
+  const frameDuration = animData.duration / animData.frames;
+  
+  // Calculate which frame we should be on based on elapsed time
+  const frame = Math.floor((elapsed % animData.duration) / frameDuration);
+  
+  // Ensure frame is within bounds
+  return Math.min(frame, animData.frames - 1);
+};
+
+// Determine if an animation should be considered complete
+export const isAnimationComplete = (
+  animation: AnimationType,
+  startTime: number
+): boolean => {
+  const animData = animations[animation];
+  
+  // If animation has no duration, it's never complete
+  if (animData.duration <= 0) {
+    return false;
+  }
+  
+  const elapsed = Date.now() - startTime;
+  return elapsed >= animData.duration;
 };
