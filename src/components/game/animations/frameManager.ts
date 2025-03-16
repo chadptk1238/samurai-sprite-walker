@@ -1,4 +1,3 @@
-
 import { animations } from '../animationUtils';
 import { AnimationType } from '../useAnimationState';
 import { AnimationState } from '../types/animationTypes';
@@ -23,10 +22,17 @@ export const updateWalkingFrames = (
       lastFrameTime = timestamp;
     }
     
-    return requestAnimationFrame(updateFrame);
+    if (animationStateRef.current?.animationFrameId) {
+      return requestAnimationFrame(updateFrame);
+    }
+    return 0;
   };
   
-  return requestAnimationFrame(updateFrame);
+  const frameId = requestAnimationFrame(updateFrame);
+  if (animationStateRef.current) {
+    animationStateRef.current.animationFrameId = frameId;
+  }
+  return frameId;
 };
 
 // Helper function to handle frame updates for attack animations
@@ -47,7 +53,6 @@ export const updateAttackFrames = (
   
   let frameStartTime = Date.now();
   let currentFrameIndex = 0;
-  let animationId: number;
   
   const updateAttackFrame = () => {
     const now = Date.now();
@@ -55,32 +60,41 @@ export const updateAttackFrames = (
     
     // If we've spent enough time on the current frame, move to the next one
     if (elapsedSinceFrameStart >= frameDuration) {
-      // Move to the next frame
       currentFrameIndex++;
+      
+      console.log(`Attack animation advancing to frame ${currentFrameIndex} of ${totalFrames}`);
       
       // If we've completed all frames, finish the animation
       if (currentFrameIndex >= totalFrames) {
         console.log('Attack animation complete, calling callback');
+        // Clear the animation frame ID before calling callback
+        if (animationStateRef.current) {
+          animationStateRef.current.animationFrameId = null;
+        }
+        
         if (onAnimationComplete) {
           onAnimationComplete();
         }
-        return 0; // Stop the animation loop
+        return;
       }
       
-      // Update the frame and reset the frame start time
+      // Update the frame and reset frame start time
       setFrame(currentFrameIndex);
       frameStartTime = now;
-      console.log(`Attack animation advancing to frame ${currentFrameIndex}`);
     }
     
-    // Continue the animation loop
-    animationId = requestAnimationFrame(updateAttackFrame);
-    return animationId;
+    // Only continue if animation hasn't been canceled
+    if (animationStateRef.current?.animationFrameId) {
+      animationStateRef.current.animationFrameId = requestAnimationFrame(updateAttackFrame);
+    }
   };
   
   // Start the attack animation
-  animationId = requestAnimationFrame(updateAttackFrame);
-  return animationId;
+  const frameId = requestAnimationFrame(updateAttackFrame);
+  if (animationStateRef.current) {
+    animationStateRef.current.animationFrameId = frameId;
+  }
+  return frameId;
 };
 
 // Helper function to handle frame updates for jump animation
@@ -104,12 +118,14 @@ export const updateJumpFrames = (
     
     setJumpHeight(newHeight);
     
-    if (progress < 1) {
-      return requestAnimationFrame(updateJump);
+    if (progress < 1 && animationStateRef.current?.animationFrameId) {
+      animationStateRef.current.animationFrameId = requestAnimationFrame(updateJump);
+      return animationStateRef.current.animationFrameId;
     } else {
       // End jump animation
       if (animationStateRef.current) {
         animationStateRef.current.isJumping = false;
+        animationStateRef.current.animationFrameId = null;
       }
       setJumpHeight(0);
       
@@ -124,5 +140,9 @@ export const updateJumpFrames = (
     }
   };
   
-  return requestAnimationFrame(updateJump);
+  const frameId = requestAnimationFrame(updateJump);
+  if (animationStateRef.current) {
+    animationStateRef.current.animationFrameId = frameId;
+  }
+  return frameId;
 };
