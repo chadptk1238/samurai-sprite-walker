@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { AnimationType } from './game/useAnimationState';
 import { useSpriteAnimation } from './game/useSpriteAnimation';
