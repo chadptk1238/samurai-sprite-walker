@@ -9,7 +9,7 @@ export const animations = {
   middleParry: { row: 1, frames: 1, startFrame: 0, duration: 400 },
   upParry: { row: 1, frames: 1, startFrame: 1, duration: 400 },
   downParry: { row: 1, frames: 1, startFrame: 2, duration: 400 },
-  attack: { row: 2, frames: 2, startFrame: 0, duration: 300 }, // Ensure we have 2 frames for attack
+  attack: { row: 2, frames: 2, startFrame: 0, duration: 400 }, // Slightly slower attack for better visibility
   thrust: { row: 3, frames: 1, startFrame: 0, duration: 400 },
   downAttack: { row: 3, frames: 1, startFrame: 1, duration: 400 },
   death: { row: 4, frames: 1, startFrame: 0, duration: 0 },
@@ -20,8 +20,18 @@ export const animations = {
 // Helper for calculating background position
 export const getBackgroundPosition = (currentAnimation: AnimationType, frame: number) => {
   const animData = animations[currentAnimation];
+  
+  // If animation data doesn't exist, default to idle
+  if (!animData) {
+    console.error(`Animation data for ${currentAnimation} not found!`);
+    return '0px 0px';
+  }
+  
   const frameIndex = animData.startFrame + frame;
   const x = frameIndex * 32; // Each frame is 32px wide
   const y = animData.row * 32; // Each row is 32px tall
+  
+  console.log(`Animation: ${currentAnimation}, Frame: ${frame}, Position: -${x}px -${y}px`);
+  
   return `-${x}px -${y}px`;
 };
