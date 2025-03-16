@@ -1,4 +1,3 @@
-
 import { useRef, useState } from 'react';
 import { AnimationType } from '../useAnimationState';
 import { AnimationState } from '../types/animationTypes';
@@ -12,6 +11,7 @@ export const useAnimationStateManager = (initialAnimation: AnimationType) => {
   // Use ref to track animation state
   const animationStateRef = useRef<AnimationState>({
     isJumping: false,
+    isAttacking: false, // Initialize the new property
     currentAnimation: initialAnimation,
     animationTimer: null,
     animationFrameId: null,
