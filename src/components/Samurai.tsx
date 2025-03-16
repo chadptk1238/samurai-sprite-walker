@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 // Define animation types for the sprite
-type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump';
+type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump' | 'crouch';
 
 interface SamuraiProps {
   x: number;
@@ -23,6 +23,7 @@ const animations = {
   thrust: { row: 3, frames: 1, startFrame: 0, duration: 400 },
   downAttack: { row: 3, frames: 1, startFrame: 1, duration: 400 },
   death: { row: 4, frames: 1, startFrame: 0, duration: 0 },
+  crouch: { row: 4, frames: 1, startFrame: 0, duration: 0 },
   jump: { row: 5, frames: 1, startFrame: 0, duration: 500 },
 };
 
@@ -37,36 +38,75 @@ const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale, anima
   
   // Handle animation changes
   useEffect(() => {
-    // Don't interrupt animations in progress unless it's walking or idle
-    if (animationTimer && currentAnimation !== 'idle' && 
-        currentAnimation !== 'walk' && animation !== 'idle') {
-      return;
-    }
+    // Priority animations that should interrupt others
+    const priorityAnimations = ['attack', 'jump', 'thrust', 'downAttack'];
     
-    // Clear any existing animation timer
-    if (animationTimer) {
-      clearTimeout(animationTimer);
-      setAnimationTimer(null);
-    }
-    
-    // If walking animation is active, override the current animation
-    if (isWalking) {
-      setCurrentAnimation('walk');
-    } else if (animation !== currentAnimation && !jumping) {
-      // Start the new animation
-      setCurrentAnimation(animation);
-      setFrame(0);
-      setAnimationStartTime(Date.now());
+    // For normal state transitions
+    if ((animation !== currentAnimation) && 
+        (!animationTimer || priorityAnimations.includes(animation))) {
       
-      // For animations with a duration, set a timer to return to idle
-      const animDuration = animations[animation].duration;
-      if (animDuration > 0 && animation !== 'walk') {
+      // Clear any existing animation timer
+      if (animationTimer) {
+        clearTimeout(animationTimer);
+        setAnimationTimer(null);
+      }
+      
+      // Special case for jump animation
+      if (animation === 'jump' && !jumping) {
+        setJumping(true);
+        setCurrentAnimation('jump');
+        setFrame(0);
+        setAnimationStartTime(Date.now());
+      } 
+      // Handle attack animations
+      else if (animation === 'attack' || animation === 'thrust' || animation === 'downAttack') {
+        setCurrentAnimation(animation);
+        setFrame(0);
+        setAnimationStartTime(Date.now());
+        
+        // Set a timer to return to idle
         const timer = window.setTimeout(() => {
-          setCurrentAnimation('idle');
+          if (!isWalking) {
+            setCurrentAnimation('idle');
+          } else {
+            setCurrentAnimation('walk');
+          }
           setAnimationTimer(null);
-        }, animDuration);
+        }, animations[animation].duration);
+        
         setAnimationTimer(timer);
       }
+      // Handle other animations
+      else if (!jumping && animation !== 'jump') {
+        setCurrentAnimation(animation);
+        setFrame(0);
+        setAnimationStartTime(Date.now());
+        
+        // For animations with a duration, set a timer to return to idle
+        const animDuration = animations[animation].duration;
+        if (animDuration > 0 && animation !== 'walk') {
+          const timer = window.setTimeout(() => {
+            if (!isWalking) {
+              setCurrentAnimation('idle');
+            } else {
+              setCurrentAnimation('walk');
+            }
+            setAnimationTimer(null);
+          }, animDuration);
+          setAnimationTimer(timer);
+        }
+      }
+    }
+    
+    // Handle walking animation specifically
+    if (isWalking && !jumping && 
+        !['attack', 'thrust', 'downAttack'].includes(currentAnimation) && 
+        currentAnimation !== 'walk') {
+      setCurrentAnimation('walk');
+      setFrame(0);
+    } else if (!isWalking && currentAnimation === 'walk') {
+      setCurrentAnimation('idle');
+      setFrame(0);
     }
   }, [isWalking, animation, jumping, currentAnimation, animationTimer]);
   
@@ -93,33 +133,38 @@ const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale, anima
       };
       
       animationId = requestAnimationFrame(updateFrame);
-    } else if (currentAnimation === 'attack' || currentAnimation === 'thrust' || currentAnimation === 'downAttack') {
+    } else if (currentAnimation === 'attack') {
       // Use animationStartTime to calculate the current frame for attack animations
       const currentAnimData = animations[currentAnimation];
-      if (currentAnimData.frames > 1) {
-        const frameInterval = currentAnimData.duration / currentAnimData.frames;
-        
-        const updateAttackFrame = () => {
-          if (animationStartTime) {
-            const elapsed = Date.now() - animationStartTime;
-            const frameIndex = Math.min(
-              Math.floor(elapsed / frameInterval),
-              currentAnimData.frames - 1
-            );
-            setFrame(frameIndex);
-          }
+      const frameInterval = currentAnimData.duration / currentAnimData.frames;
+      
+      const updateAttackFrame = () => {
+        if (animationStartTime) {
+          const elapsed = Date.now() - animationStartTime;
+          const frameIndex = Math.min(
+            Math.floor(elapsed / frameInterval),
+            currentAnimData.frames - 1
+          );
+          setFrame(frameIndex);
           
-          animationId = requestAnimationFrame(updateAttackFrame);
-        };
+          // If we've completed the animation cycle, check if we need to return to idle
+          if (elapsed >= currentAnimData.duration) {
+            if (!isWalking) {
+              setCurrentAnimation('idle');
+            } else {
+              setCurrentAnimation('walk');
+            }
+            return;
+          }
+        }
         
         animationId = requestAnimationFrame(updateAttackFrame);
-      }
-    } else if (currentAnimation === 'jump' && !jumping) {
-      // Start jump animation with improved physics
-      setJumping(true);
-      setFrame(0);
+      };
       
-      const jumpStartTime = Date.now();
+      animationId = requestAnimationFrame(updateAttackFrame);
+    } else if (currentAnimation === 'jump' && jumping) {
+      // Improved jump animation with physics
+      const jumpStartTime = animationStartTime || Date.now();
       const jumpDuration = animations.jump.duration;
       const maxJumpHeight = 50; // pixels
       
@@ -139,7 +184,13 @@ const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale, anima
           // End jump animation
           setJumping(false);
           setJumpHeight(0);
-          setCurrentAnimation('idle');
+          
+          // Return to appropriate animation
+          if (isWalking) {
+            setCurrentAnimation('walk');
+          } else {
+            setCurrentAnimation('idle');
+          }
         }
       };
       
@@ -148,6 +199,7 @@ const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale, anima
                currentAnimation === 'middleParry' || 
                currentAnimation === 'upParry' || 
                currentAnimation === 'downParry' ||
+               currentAnimation === 'crouch' ||
                currentAnimation === 'death') {
       // Reset to first frame for static animations
       setFrame(0);

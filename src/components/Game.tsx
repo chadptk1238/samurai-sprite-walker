@@ -10,11 +10,13 @@ const GAME_HEIGHT = 300;
 const MOVEMENT_SPEED = 3;
 const CHARACTER_SCALE = 2;
 
+type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump' | 'crouch';
+
 const Game: React.FC = () => {
   const [position, setPosition] = useState(GAME_WIDTH / 2);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
   const [isWalking, setIsWalking] = useState(false);
-  const [animation, setAnimation] = useState<'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump'>('idle');
+  const [animation, setAnimation] = useState<AnimationType>('idle');
   const [keysPressed, setKeysPressed] = useState<Record<string, boolean>>({});
   const [animationCooldown, setAnimationCooldown] = useState(false);
   const isMobile = useIsMobile();
@@ -24,14 +26,17 @@ const Game: React.FC = () => {
   useEffect(() => {
     toast({
       title: "Samurai Sprite Walker",
-      description: `Use ${isMobile ? "the on-screen controls" : "arrow keys to move, X to attack, Z to jump, 1-3 for parry stances"}.`,
+      description: `Use ${isMobile ? "the on-screen controls" : "arrow keys to move, X to attack, Z to jump, C to crouch, 1-3 for parry stances"}.`,
       duration: 5000,
     });
   }, [toast, isMobile]);
 
   // Animation cooldown handler
-  const triggerAnimation = useCallback((animType: typeof animation) => {
+  const triggerAnimation = useCallback((animType: AnimationType) => {
     if (animationCooldown) return;
+    
+    // Don't trigger new animations if crouching except for standing up
+    if (animation === 'crouch' && animType !== 'idle') return;
     
     setAnimation(animType);
     setAnimationCooldown(true);
@@ -41,12 +46,13 @@ const Game: React.FC = () => {
       animType === 'attack' ? 500 : 
       animType === 'jump' ? 600 : 
       animType === 'thrust' || animType === 'downAttack' ? 400 : 
+      animType === 'crouch' ? 200 :
       300;
     
     setTimeout(() => {
       setAnimationCooldown(false);
     }, cooldownTime);
-  }, [animationCooldown]);
+  }, [animationCooldown, animation]);
 
   // Handle keyboard controls
   useEffect(() => {
@@ -60,6 +66,9 @@ const Game: React.FC = () => {
           triggerAnimation('attack');
         } else if (e.key === 'z' || e.key === 'Z') {
           triggerAnimation('jump');
+        } else if (e.key === 'c' || e.key === 'C') {
+          // Toggle crouch on/off
+          triggerAnimation(animation === 'crouch' ? 'idle' : 'crouch');
         } else if (e.key === '1') {
           triggerAnimation('middleParry');
         } else if (e.key === '2') {
@@ -93,7 +102,7 @@ const Game: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [keysPressed, animationCooldown, triggerAnimation]);
+  }, [keysPressed, animationCooldown, triggerAnimation, animation]);
 
   // Process movement based on pressed keys
   useEffect(() => {
@@ -101,24 +110,35 @@ const Game: React.FC = () => {
     let walking = false;
     
     const updateGameState = () => {
+      // Don't allow movement during certain animations
+      const canMove = animation !== 'crouch';
+      
       setPosition(prevPos => {
         let newPos = prevPos;
         
         if ((keysPressed['ArrowLeft'] || keysPressed['a']) && 
-            !animationCooldown) {
+            canMove && !animationCooldown) {
           newPos = Math.max(16 * CHARACTER_SCALE, prevPos - MOVEMENT_SPEED);
+          // Only change direction when actually moving
           setDirection('left');
           walking = true;
         } else if ((keysPressed['ArrowRight'] || keysPressed['d']) && 
-                  !animationCooldown) {
+                  canMove && !animationCooldown) {
           newPos = Math.min(GAME_WIDTH - (16 * CHARACTER_SCALE), prevPos + MOVEMENT_SPEED);
+          // Only change direction when actually moving
           setDirection('right');
           walking = true;
         } else {
           walking = false;
         }
         
-        setIsWalking(walking);
+        // Only set walking if not in a special animation
+        if (canMove) {
+          setIsWalking(walking);
+        } else {
+          setIsWalking(false);
+        }
+        
         return newPos;
       });
       
@@ -130,7 +150,7 @@ const Game: React.FC = () => {
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [keysPressed, animationCooldown]);
+  }, [keysPressed, animationCooldown, animation]);
 
   // Mobile control handlers
   const handleTouchStart = useCallback((dir: 'left' | 'right') => {
@@ -150,7 +170,7 @@ const Game: React.FC = () => {
   }, []);
 
   // Action button handlers for mobile
-  const handleActionButton = useCallback((action: 'attack' | 'jump' | 'parry' | 'thrust' | 'downAttack') => {
+  const handleActionButton = useCallback((action: 'attack' | 'jump' | 'parry' | 'thrust' | 'downAttack' | 'crouch') => {
     if (animationCooldown) return;
     
     if (action === 'attack') {
@@ -163,8 +183,11 @@ const Game: React.FC = () => {
       triggerAnimation('thrust');
     } else if (action === 'downAttack') {
       triggerAnimation('downAttack');
+    } else if (action === 'crouch') {
+      // Toggle crouch
+      triggerAnimation(animation === 'crouch' ? 'idle' : 'crouch');
     }
-  }, [triggerAnimation, animationCooldown]);
+  }, [triggerAnimation, animationCooldown, animation]);
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -202,7 +225,7 @@ const Game: React.FC = () => {
       {/* Control instructions */}
       <div className="mb-4 text-sm text-center">
         <p className="font-semibold text-indigo-700">Keyboard Controls:</p>
-        <p>Arrow keys: Move | X: Attack | Z: Jump</p>
+        <p>Arrow keys: Move | X: Attack | Z: Jump | C: Crouch</p>
         <p>1-3: Parry Stances | T: Thrust | D: Down Attack</p>
       </div>
       
@@ -257,6 +280,15 @@ const Game: React.FC = () => {
                 onMouseDown={() => handleActionButton('jump')}
               >
                 Jump
+              </Button>
+              <Button
+                variant="default"
+                size="lg"
+                className="bg-amber-500 hover:bg-amber-600"
+                onTouchStart={() => handleActionButton('crouch')}
+                onMouseDown={() => handleActionButton('crouch')}
+              >
+                Crouch
               </Button>
             </div>
             <div className="flex gap-2 justify-center">
