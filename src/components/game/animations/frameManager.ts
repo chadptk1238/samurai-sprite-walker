@@ -54,12 +54,18 @@ export const updateAttackFrames = (
   let frameStartTime = Date.now();
   let currentFrameIndex = 0;
   
+  // Set the isAttacking flag
+  if (animationStateRef.current) {
+    animationStateRef.current.isAttacking = true;
+  }
+  
   const updateAttackFrame = () => {
     const now = Date.now();
     const elapsedSinceFrameStart = now - frameStartTime;
     
     // If we've spent enough time on the current frame, move to the next one
     if (elapsedSinceFrameStart >= frameDuration) {
+      // Increment frame index
       currentFrameIndex++;
       
       console.log(`Attack animation advancing to frame ${currentFrameIndex} of ${totalFrames}`);
@@ -67,14 +73,17 @@ export const updateAttackFrames = (
       // If we've completed all frames, finish the animation
       if (currentFrameIndex >= totalFrames) {
         console.log('Attack animation complete, calling callback');
-        // Clear the animation frame ID before calling callback
+        
+        // Reset isAttacking flag and clear animation frame ID
         if (animationStateRef.current) {
+          animationStateRef.current.isAttacking = false;
           animationStateRef.current.animationFrameId = null;
         }
         
         if (onAnimationComplete) {
           onAnimationComplete();
         }
+        
         return;
       }
       
@@ -83,7 +92,7 @@ export const updateAttackFrames = (
       frameStartTime = now;
     }
     
-    // Only continue if animation hasn't been canceled
+    // Continue the animation only if it hasn't been canceled
     if (animationStateRef.current?.animationFrameId) {
       animationStateRef.current.animationFrameId = requestAnimationFrame(updateAttackFrame);
     }
