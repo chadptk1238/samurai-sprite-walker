@@ -1,3 +1,4 @@
+
 import { animations } from '../animationUtils';
 import { AnimationType } from '../useAnimationState';
 import { AnimationState } from '../types/animationTypes';
@@ -46,6 +47,7 @@ export const updateAttackFrames = (
   
   let frameStartTime = Date.now();
   let currentFrameIndex = 0;
+  let animationId: number;
   
   const updateAttackFrame = () => {
     const now = Date.now();
@@ -53,31 +55,32 @@ export const updateAttackFrames = (
     
     // If we've spent enough time on the current frame, move to the next one
     if (elapsedSinceFrameStart >= frameDuration) {
+      // Move to the next frame
       currentFrameIndex++;
-      setFrame(currentFrameIndex);
-      frameStartTime = now;
       
-      console.log(`Attack animation advancing to frame ${currentFrameIndex}`);
-      
-      // If we've reached the last frame, trigger completion callback after a short delay
-      if (currentFrameIndex >= totalFrames - 1) {
-        console.log('Attack animation reached last frame, will complete soon');
-        setTimeout(() => {
-          console.log('Attack animation complete, calling callback');
-          if (onAnimationComplete) {
-            onAnimationComplete();
-          }
-        }, frameDuration);
+      // If we've completed all frames, finish the animation
+      if (currentFrameIndex >= totalFrames) {
+        console.log('Attack animation complete, calling callback');
+        if (onAnimationComplete) {
+          onAnimationComplete();
+        }
         return 0; // Stop the animation loop
       }
+      
+      // Update the frame and reset the frame start time
+      setFrame(currentFrameIndex);
+      frameStartTime = now;
+      console.log(`Attack animation advancing to frame ${currentFrameIndex}`);
     }
     
-    // Continue the animation
-    return requestAnimationFrame(updateAttackFrame);
+    // Continue the animation loop
+    animationId = requestAnimationFrame(updateAttackFrame);
+    return animationId;
   };
   
   // Start the attack animation
-  return requestAnimationFrame(updateAttackFrame);
+  animationId = requestAnimationFrame(updateAttackFrame);
+  return animationId;
 };
 
 // Helper function to handle frame updates for jump animation
