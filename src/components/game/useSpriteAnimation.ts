@@ -16,6 +16,7 @@ export const useSpriteAnimation = (
   const animStartTimeRef = useRef<number>(Date.now());
   const requestIdRef = useRef<number | null>(null);
   const isActionAnimationRef = useRef<boolean>(false);
+  const lastFrameRef = useRef<number>(-1); // Track last rendered frame for debugging
   
   // Clean up animation frame
   const cleanupAnimation = useCallback(() => {
@@ -32,11 +33,14 @@ export const useSpriteAnimation = (
     
     // Don't interrupt action animations in progress
     if (isActionAnimationRef.current && isActionAnim) {
+      console.log(`Not interrupting ${currentAnimation} with ${animation}`);
       return;
     }
     
     // Clean up existing animation
     cleanupAnimation();
+    
+    console.log(`Starting new animation: ${animation}`);
     
     // Set new animation
     setCurrentAnimation(animation);
@@ -45,11 +49,15 @@ export const useSpriteAnimation = (
     // Track if this is an action animation
     isActionAnimationRef.current = isActionAnim;
     
+    // Reset frame for visual debugging
+    setFrame(0);
+    lastFrameRef.current = -1;
+    
     // Reset jump height if this is a jump
     if (animation === 'jump') {
       setJumpHeight(0);
     }
-  }, [cleanupAnimation]);
+  }, [cleanupAnimation, currentAnimation]);
   
   // Animation loop
   useEffect(() => {
@@ -68,7 +76,16 @@ export const useSpriteAnimation = (
     const animate = () => {
       // Calculate current frame based on time
       const newFrame = calculateFrame(currentAnimation, animStartTimeRef.current);
-      setFrame(newFrame);
+      
+      // Only update frame if it's changed
+      if (newFrame !== lastFrameRef.current) {
+        lastFrameRef.current = newFrame;
+        setFrame(newFrame);
+        
+        if (currentAnimation === 'attack') {
+          console.log(`Attack animation frame changed to ${newFrame}`);
+        }
+      }
       
       // Handle jump animation
       if (currentAnimation === 'jump') {
@@ -81,6 +98,7 @@ export const useSpriteAnimation = (
       
       // Check if action animation is complete
       if (isActionAnimationRef.current && isAnimationComplete(currentAnimation, animStartTimeRef.current)) {
+        console.log(`Action animation ${currentAnimation} complete`);
         isActionAnimationRef.current = false;
         
         // Reset to appropriate animation
@@ -107,6 +125,7 @@ export const useSpriteAnimation = (
     
     // Cleanup function
     return () => {
+      console.log(`Cleaning up animation: ${currentAnimation}`);
       cleanupAnimation();
     };
   }, [currentAnimation, isWalking, cleanupAnimation]);
