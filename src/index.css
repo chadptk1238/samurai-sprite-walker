@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -98,4 +99,45 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Pixel art rendering */
+  .pixelated {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Sprite animations */
+.samurai-sprite {
+  width: 32px;
+  height: 32px;
+  background-image: url('/lovable-uploads/4b5315b6-6111-48e9-8951-855f7cc6f638.png');
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  transform-origin: center;
+}
+
+.samurai-idle {
+  background-position: 0px 0px;
+}
+
+.samurai-flip {
+  transform: scaleX(-1);
+}
+
+/* Control button styles */
+.control-button {
+  @apply bg-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center 
+         shadow-md active:bg-blue-600 active:shadow-inner transition-all;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Mobile control container */
+.mobile-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 0.5rem;
 }

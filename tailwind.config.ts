@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,10 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				game: {
+					'bg': '#87CEEB',
+					'ground': '#8B4513'
 				}
 			},
 			borderRadius: {
@@ -84,11 +89,18 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'walk': {
+					'0%': { backgroundPosition: '0px 0px' },
+					'33%': { backgroundPosition: '-32px 0px' },
+					'66%': { backgroundPosition: '-64px 0px' },
+					'100%': { backgroundPosition: '-96px 0px' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'walk': 'walk 0.5s steps(4) infinite'
 			}
 		}
 	},
