@@ -1,32 +1,29 @@
 
-import { useEffect, useRef, useState } from 'react';
-import { animations } from './animationUtils';
+import { useEffect } from 'react';
 import { AnimationType } from './useAnimationState';
-
-interface AnimationState {
-  isJumping: boolean;
-  currentAnimation: AnimationType;
-  animationTimer: number | null;
-  animationFrameId: number | null;
-  animationStartTime: number;
-}
+import { useAnimationStateManager } from './animations/useAnimationStateManager';
+import { 
+  updateWalkingFrames, 
+  updateAttackFrames, 
+  updateJumpFrames 
+} from './animations/frameManager';
+import { SpriteAnimationResult } from './types/animationTypes';
 
 export const useSpriteAnimation = (
   initialAnimation: AnimationType = 'idle',
   isWalking: boolean
-) => {
-  const [frame, setFrame] = useState(0);
-  const [currentAnimation, setCurrentAnimation] = useState<AnimationType>(initialAnimation);
-  const [jumpHeight, setJumpHeight] = useState(0);
-
-  // Use ref to track animation state
-  const animationStateRef = useRef<AnimationState>({
-    isJumping: false,
-    currentAnimation: initialAnimation,
-    animationTimer: null,
-    animationFrameId: null,
-    animationStartTime: 0,
-  });
+): SpriteAnimationResult => {
+  const {
+    frame,
+    setFrame,
+    currentAnimation,
+    setCurrentAnimation,
+    jumpHeight,
+    setJumpHeight,
+    animationStateRef,
+    clearAnimations,
+    setAnimationTimer
+  } = useAnimationStateManager(initialAnimation);
 
   // Handle animation changes
   const updateAnimation = (animation: AnimationType) => {
@@ -37,23 +34,11 @@ export const useSpriteAnimation = (
     if (animation === animationStateRef.current.currentAnimation && !canRestart) {
       return;
     }
-
-    // Priority animations that should interrupt others
-    const priorityAnimations = ['attack', 'jump', 'thrust', 'downAttack'];
     
     // For normal state transitions
     if (animation !== animationStateRef.current.currentAnimation || canRestart) {
-      // Clear any existing animation timer
-      if (animationStateRef.current.animationTimer) {
-        clearTimeout(animationStateRef.current.animationTimer);
-        animationStateRef.current.animationTimer = null;
-      }
-      
-      // Cancel any ongoing animation frame
-      if (animationStateRef.current.animationFrameId) {
-        cancelAnimationFrame(animationStateRef.current.animationFrameId);
-        animationStateRef.current.animationFrameId = null;
-      }
+      // Clear any existing animation
+      clearAnimations();
       
       // Special case for jump animation
       if (animation === 'jump') {
@@ -68,38 +53,14 @@ export const useSpriteAnimation = (
         setCurrentAnimation(animation);
         setFrame(0);
         animationStateRef.current.animationStartTime = Date.now();
-        
-        // Set a timer to return to idle
-        const timer = window.setTimeout(() => {
-          if (!isWalking) {
-            setCurrentAnimation('idle');
-          } else {
-            setCurrentAnimation('walk');
-          }
-          animationStateRef.current.animationTimer = null;
-        }, animations[animation].duration);
-        
-        animationStateRef.current.animationTimer = timer;
+        setAnimationTimer(isWalking, animation);
       }
       // Handle other animations
       else if (!animationStateRef.current.isJumping) {
         setCurrentAnimation(animation);
         setFrame(0);
         animationStateRef.current.animationStartTime = Date.now();
-        
-        // For animations with a duration, set a timer to return to idle
-        const animDuration = animations[animation].duration;
-        if (animDuration > 0 && animation !== 'walk') {
-          const timer = window.setTimeout(() => {
-            if (!isWalking) {
-              setCurrentAnimation('idle');
-            } else {
-              setCurrentAnimation('walk');
-            }
-            animationStateRef.current.animationTimer = null;
-          }, animDuration);
-          animationStateRef.current.animationTimer = timer;
-        }
+        setAnimationTimer(isWalking, animation);
       }
       
       // Update the current animation in ref
@@ -121,99 +82,27 @@ export const useSpriteAnimation = (
   // Run animation frames
   useEffect(() => {
     // Cancel any existing animation
-    if (animationStateRef.current.animationFrameId) {
-      cancelAnimationFrame(animationStateRef.current.animationFrameId);
-      animationStateRef.current.animationFrameId = null;
-    }
+    clearAnimations();
     
-    let lastFrameTime = 0;
+    let animationFrameId: number | null = null;
     
     if (currentAnimation === 'walk' && isWalking) {
       // Start walking animation - cycle through frames
-      const currentAnimData = animations[currentAnimation];
-      const frameInterval = currentAnimData.duration / currentAnimData.frames;
-      
-      const updateFrame = (timestamp: number) => {
-        if (!lastFrameTime) lastFrameTime = timestamp;
-        
-        const elapsed = timestamp - lastFrameTime;
-        if (elapsed > frameInterval) {
-          setFrame(prevFrame => (prevFrame + 1) % currentAnimData.frames);
-          lastFrameTime = timestamp;
-        }
-        
-        animationStateRef.current.animationFrameId = requestAnimationFrame(updateFrame);
-      };
-      
-      animationStateRef.current.animationFrameId = requestAnimationFrame(updateFrame);
+      animationFrameId = updateWalkingFrames(currentAnimation, setFrame, animationStateRef);
+      animationStateRef.current.animationFrameId = animationFrameId;
     } else if (currentAnimation === 'attack' || currentAnimation === 'thrust' || currentAnimation === 'downAttack') {
       // Fixed animation sequence for attack animations
-      const currentAnimData = animations[currentAnimation];
-      const frameInterval = currentAnimData.duration / currentAnimData.frames;
-      const startTime = animationStateRef.current.animationStartTime || Date.now();
-      
-      const updateAttackFrame = (timestamp: number) => {
-        const elapsed = Date.now() - startTime;
-        const frameIndex = Math.min(
-          Math.floor(elapsed / frameInterval),
-          currentAnimData.frames - 1
-        );
-        
-        setFrame(frameIndex);
-        
-        // Only continue the animation if we haven't reached the end
-        if (elapsed < currentAnimData.duration) {
-          animationStateRef.current.animationFrameId = requestAnimationFrame(updateAttackFrame);
-        }
-      };
-      
-      animationStateRef.current.animationFrameId = requestAnimationFrame(updateAttackFrame);
+      animationFrameId = updateAttackFrames(currentAnimation, setFrame, animationStateRef);
+      animationStateRef.current.animationFrameId = animationFrameId;
     } else if (currentAnimation === 'jump' && animationStateRef.current.isJumping) {
       // Improved jump animation with physics
-      const jumpStartTime = animationStateRef.current.animationStartTime || Date.now();
-      const jumpDuration = animations.jump.duration;
-      const maxJumpHeight = 50; // pixels
-      
-      const updateJump = (timestamp: number) => {
-        const elapsed = Date.now() - jumpStartTime;
-        const progress = Math.min(elapsed / jumpDuration, 1);
-        
-        // Parabolic jump curve (0 at start, 0 at end, max height in middle)
-        const jumpCurve = Math.sin(progress * Math.PI);
-        const newHeight = maxJumpHeight * jumpCurve;
-        
-        setJumpHeight(newHeight);
-        
-        if (progress < 1) {
-          animationStateRef.current.animationFrameId = requestAnimationFrame(updateJump);
-        } else {
-          // End jump animation
-          animationStateRef.current.isJumping = false;
-          setJumpHeight(0);
-          
-          // Return to appropriate animation
-          if (isWalking) {
-            setCurrentAnimation('walk');
-          } else {
-            setCurrentAnimation('idle');
-          }
-        }
-      };
-      
-      animationStateRef.current.animationFrameId = requestAnimationFrame(updateJump);
+      animationFrameId = updateJumpFrames(setJumpHeight, setCurrentAnimation, animationStateRef, isWalking);
+      animationStateRef.current.animationFrameId = animationFrameId;
     }
     
     // Cleanup function
     return () => {
-      if (animationStateRef.current.animationFrameId) {
-        cancelAnimationFrame(animationStateRef.current.animationFrameId);
-        animationStateRef.current.animationFrameId = null;
-      }
-      
-      if (animationStateRef.current.animationTimer) {
-        clearTimeout(animationStateRef.current.animationTimer);
-        animationStateRef.current.animationTimer = null;
-      }
+      clearAnimations();
     };
   }, [currentAnimation, isWalking]);
 
