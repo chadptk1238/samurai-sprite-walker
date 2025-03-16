@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useCallback } from 'react';
 import { AnimationType } from './useAnimationState';
 import { useAnimationStateManager } from './animations/useAnimationStateManager';
@@ -46,8 +45,10 @@ export const useSpriteAnimation = (
   const updateAnimation = useCallback((animation: AnimationType) => {
     console.log(`updateAnimation called with: ${animation}, current: ${animationStateRef.current?.currentAnimation}`);
     
-    // If we're already in the requested animation, we can allow re-triggering for attack and jump
-    const canRestart = animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack';
+    // If we're already in the requested animation, check if we can restart it
+    const canRestart = (animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack') && 
+                       !animationStateRef.current?.isAttacking && // Don't restart if already attacking
+                       !animationStateRef.current?.isJumping;     // Don't restart if already jumping
     
     // Skip if the animation hasn't changed and isn't restartable
     if (animation === animationStateRef.current?.currentAnimation && !canRestart) {
@@ -66,7 +67,7 @@ export const useSpriteAnimation = (
     }
     
     // For attack animations, always start from the beginning
-    if (animation === 'attack' || animation === 'thrust' || animation === 'downAttack') {
+    if ((animation === 'attack' || animation === 'thrust' || animation === 'downAttack')) {
       console.log('Starting attack animation from beginning');
       setCurrentAnimation(animation);
       setFrame(0);
