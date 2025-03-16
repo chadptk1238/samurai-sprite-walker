@@ -14,16 +14,16 @@ interface SamuraiProps {
 
 // Sprite sheet position mapping for animations
 const animations = {
-  idle: { row: 0, frames: 1, startFrame: 0 },
-  walk: { row: 0, frames: 4, startFrame: 0 },
-  middleParry: { row: 1, frames: 1, startFrame: 0 },
-  upParry: { row: 1, frames: 1, startFrame: 1 },
-  downParry: { row: 1, frames: 1, startFrame: 2 },
-  attack: { row: 2, frames: 2, startFrame: 0 },
-  thrust: { row: 3, frames: 1, startFrame: 0 },
-  downAttack: { row: 3, frames: 1, startFrame: 1 },
-  death: { row: 4, frames: 1, startFrame: 0 },
-  jump: { row: 5, frames: 1, startFrame: 0 },
+  idle: { row: 0, frames: 1, startFrame: 0, duration: 0 },
+  walk: { row: 0, frames: 4, startFrame: 0, duration: 600 },
+  middleParry: { row: 1, frames: 1, startFrame: 0, duration: 400 },
+  upParry: { row: 1, frames: 1, startFrame: 1, duration: 400 },
+  downParry: { row: 1, frames: 1, startFrame: 2, duration: 400 },
+  attack: { row: 2, frames: 2, startFrame: 0, duration: 300 },
+  thrust: { row: 3, frames: 1, startFrame: 0, duration: 400 },
+  downAttack: { row: 3, frames: 1, startFrame: 1, duration: 400 },
+  death: { row: 4, frames: 1, startFrame: 0, duration: 0 },
+  jump: { row: 5, frames: 1, startFrame: 0, duration: 500 },
 };
 
 const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale, animation = 'idle' }) => {
@@ -32,81 +32,133 @@ const Samurai: React.FC<SamuraiProps> = ({ x, direction, isWalking, scale, anima
   const [currentAnimation, setCurrentAnimation] = useState<AnimationType>(animation);
   const [jumping, setJumping] = useState(false);
   const [jumpHeight, setJumpHeight] = useState(0);
+  const [animationTimer, setAnimationTimer] = useState<number | null>(null);
+  const [animationStartTime, setAnimationStartTime] = useState<number | null>(null);
   
   // Handle animation changes
   useEffect(() => {
+    // Don't interrupt animations in progress unless it's walking or idle
+    if (animationTimer && currentAnimation !== 'idle' && 
+        currentAnimation !== 'walk' && animation !== 'idle') {
+      return;
+    }
+    
+    // Clear any existing animation timer
+    if (animationTimer) {
+      clearTimeout(animationTimer);
+      setAnimationTimer(null);
+    }
+    
     // If walking animation is active, override the current animation
     if (isWalking) {
       setCurrentAnimation('walk');
-    } else if (!jumping) {
-      // If not walking or jumping, use the provided animation
+    } else if (animation !== currentAnimation && !jumping) {
+      // Start the new animation
       setCurrentAnimation(animation);
+      setFrame(0);
+      setAnimationStartTime(Date.now());
+      
+      // For animations with a duration, set a timer to return to idle
+      const animDuration = animations[animation].duration;
+      if (animDuration > 0 && animation !== 'walk') {
+        const timer = window.setTimeout(() => {
+          setCurrentAnimation('idle');
+          setAnimationTimer(null);
+        }, animDuration);
+        setAnimationTimer(timer);
+      }
     }
-  }, [isWalking, animation, jumping]);
+  }, [isWalking, animation, jumping, currentAnimation, animationTimer]);
   
   // Walking animation effect
   useEffect(() => {
-    let animationInterval: number | null = null;
-    const currentAnimData = animations[currentAnimation];
+    let animationId: number | null = null;
     
     if (currentAnimation === 'walk' && isWalking) {
       // Start walking animation - cycle through frames
-      animationInterval = window.setInterval(() => {
-        setFrame(prevFrame => (prevFrame + 1) % currentAnimData.frames);
-      }, 150); // Animation speed - adjust as needed
-    } else if (currentAnimation === 'attack') {
-      // For attack animation, cycle once then return to idle
-      animationInterval = window.setInterval(() => {
-        setFrame(prevFrame => {
-          const nextFrame = prevFrame + 1;
-          if (nextFrame >= currentAnimData.frames) {
-            // Animation complete, return to idle
-            setCurrentAnimation('idle');
-            return 0;
+      const currentAnimData = animations[currentAnimation];
+      const frameInterval = currentAnimData.duration / currentAnimData.frames;
+      
+      let lastFrameTime = 0;
+      const updateFrame = (timestamp: number) => {
+        if (!lastFrameTime) lastFrameTime = timestamp;
+        
+        const elapsed = timestamp - lastFrameTime;
+        if (elapsed > frameInterval) {
+          setFrame(prevFrame => (prevFrame + 1) % currentAnimData.frames);
+          lastFrameTime = timestamp;
+        }
+        
+        animationId = requestAnimationFrame(updateFrame);
+      };
+      
+      animationId = requestAnimationFrame(updateFrame);
+    } else if (currentAnimation === 'attack' || currentAnimation === 'thrust' || currentAnimation === 'downAttack') {
+      // Use animationStartTime to calculate the current frame for attack animations
+      const currentAnimData = animations[currentAnimation];
+      if (currentAnimData.frames > 1) {
+        const frameInterval = currentAnimData.duration / currentAnimData.frames;
+        
+        const updateAttackFrame = () => {
+          if (animationStartTime) {
+            const elapsed = Date.now() - animationStartTime;
+            const frameIndex = Math.min(
+              Math.floor(elapsed / frameInterval),
+              currentAnimData.frames - 1
+            );
+            setFrame(frameIndex);
           }
-          return nextFrame;
-        });
-      }, 150);
-    } else if (currentAnimation === 'jump') {
-      // Start jump animation
+          
+          animationId = requestAnimationFrame(updateAttackFrame);
+        };
+        
+        animationId = requestAnimationFrame(updateAttackFrame);
+      }
+    } else if (currentAnimation === 'jump' && !jumping) {
+      // Start jump animation with improved physics
       setJumping(true);
-      let jumpProgress = 0;
-      const jumpDuration = 500; // ms
-      const jumpInterval = 10; // ms
+      setFrame(0);
+      
+      const jumpStartTime = Date.now();
+      const jumpDuration = animations.jump.duration;
       const maxJumpHeight = 50; // pixels
       
-      const jumpAnimationInterval = window.setInterval(() => {
-        jumpProgress += jumpInterval;
+      const updateJump = () => {
+        const elapsed = Date.now() - jumpStartTime;
+        const progress = Math.min(elapsed / jumpDuration, 1);
         
-        // Calculate jump height using a parabolic function
-        const progress = jumpProgress / jumpDuration;
-        const newHeight = maxJumpHeight * Math.sin(progress * Math.PI);
+        // Parabolic jump curve (0 at start, 0 at end, max height in middle)
+        const jumpCurve = Math.sin(progress * Math.PI);
+        const newHeight = maxJumpHeight * jumpCurve;
         
         setJumpHeight(newHeight);
         
-        if (jumpProgress >= jumpDuration) {
+        if (progress < 1) {
+          animationId = requestAnimationFrame(updateJump);
+        } else {
           // End jump animation
-          clearInterval(jumpAnimationInterval);
           setJumping(false);
           setJumpHeight(0);
           setCurrentAnimation('idle');
         }
-      }, jumpInterval);
-      
-      return () => {
-        clearInterval(jumpAnimationInterval);
       };
-    } else {
-      // Reset to first frame for other animations
+      
+      animationId = requestAnimationFrame(updateJump);
+    } else if (currentAnimation === 'idle' || 
+               currentAnimation === 'middleParry' || 
+               currentAnimation === 'upParry' || 
+               currentAnimation === 'downParry' ||
+               currentAnimation === 'death') {
+      // Reset to first frame for static animations
       setFrame(0);
     }
     
     return () => {
-      if (animationInterval !== null) {
-        clearInterval(animationInterval);
+      if (animationId !== null) {
+        cancelAnimationFrame(animationId);
       }
     };
-  }, [currentAnimation, isWalking]);
+  }, [currentAnimation, isWalking, animationStartTime, jumping]);
   
   // Calculate the background position based on the current animation and frame
   const getBackgroundPosition = () => {

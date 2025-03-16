@@ -16,6 +16,7 @@ const Game: React.FC = () => {
   const [isWalking, setIsWalking] = useState(false);
   const [animation, setAnimation] = useState<'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump'>('idle');
   const [keysPressed, setKeysPressed] = useState<Record<string, boolean>>({});
+  const [animationCooldown, setAnimationCooldown] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
   
@@ -28,26 +29,48 @@ const Game: React.FC = () => {
     });
   }, [toast, isMobile]);
 
+  // Animation cooldown handler
+  const triggerAnimation = useCallback((animType: typeof animation) => {
+    if (animationCooldown) return;
+    
+    setAnimation(animType);
+    setAnimationCooldown(true);
+    
+    // Set cooldown timer based on animation type
+    const cooldownTime = 
+      animType === 'attack' ? 500 : 
+      animType === 'jump' ? 600 : 
+      animType === 'thrust' || animType === 'downAttack' ? 400 : 
+      300;
+    
+    setTimeout(() => {
+      setAnimationCooldown(false);
+    }, cooldownTime);
+  }, [animationCooldown]);
+
   // Handle keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       setKeysPressed(prev => ({ ...prev, [e.key]: true }));
       
-      // Handle special animation keys
-      if (e.key === 'x' || e.key === 'X') {
-        setAnimation('attack');
-      } else if (e.key === 'z' || e.key === 'Z') {
-        setAnimation('jump');
-      } else if (e.key === '1') {
-        setAnimation('middleParry');
-      } else if (e.key === '2') {
-        setAnimation('upParry');
-      } else if (e.key === '3') {
-        setAnimation('downParry');
-      } else if (e.key === 't' || e.key === 'T') {
-        setAnimation('thrust');
-      } else if (e.key === 'd' || e.key === 'D') {
-        setAnimation('downAttack');
+      // Only trigger special animations if not already in cooldown
+      if (!animationCooldown) {
+        // Handle special animation keys
+        if (e.key === 'x' || e.key === 'X') {
+          triggerAnimation('attack');
+        } else if (e.key === 'z' || e.key === 'Z') {
+          triggerAnimation('jump');
+        } else if (e.key === '1') {
+          triggerAnimation('middleParry');
+        } else if (e.key === '2') {
+          triggerAnimation('upParry');
+        } else if (e.key === '3') {
+          triggerAnimation('downParry');
+        } else if (e.key === 't' || e.key === 'T') {
+          triggerAnimation('thrust');
+        } else if (e.key === 'd' || e.key === 'D') {
+          triggerAnimation('downAttack');
+        }
       }
     };
 
@@ -70,7 +93,7 @@ const Game: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [keysPressed]);
+  }, [keysPressed, animationCooldown, triggerAnimation]);
 
   // Process movement based on pressed keys
   useEffect(() => {
@@ -81,11 +104,13 @@ const Game: React.FC = () => {
       setPosition(prevPos => {
         let newPos = prevPos;
         
-        if (keysPressed['ArrowLeft'] || keysPressed['a']) {
+        if ((keysPressed['ArrowLeft'] || keysPressed['a']) && 
+            !animationCooldown) {
           newPos = Math.max(16 * CHARACTER_SCALE, prevPos - MOVEMENT_SPEED);
           setDirection('left');
           walking = true;
-        } else if (keysPressed['ArrowRight'] || keysPressed['d']) {
+        } else if ((keysPressed['ArrowRight'] || keysPressed['d']) && 
+                  !animationCooldown) {
           newPos = Math.min(GAME_WIDTH - (16 * CHARACTER_SCALE), prevPos + MOVEMENT_SPEED);
           setDirection('right');
           walking = true;
@@ -105,15 +130,17 @@ const Game: React.FC = () => {
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [keysPressed]);
+  }, [keysPressed, animationCooldown]);
 
   // Mobile control handlers
   const handleTouchStart = useCallback((dir: 'left' | 'right') => {
+    if (animationCooldown) return;
+    
     setKeysPressed(prev => ({ 
       ...prev, 
       [dir === 'left' ? 'ArrowLeft' : 'ArrowRight']: true 
     }));
-  }, []);
+  }, [animationCooldown]);
 
   const handleTouchEnd = useCallback((dir: 'left' | 'right') => {
     setKeysPressed(prev => ({ 
@@ -123,15 +150,21 @@ const Game: React.FC = () => {
   }, []);
 
   // Action button handlers for mobile
-  const handleActionButton = useCallback((action: 'attack' | 'jump' | 'parry') => {
+  const handleActionButton = useCallback((action: 'attack' | 'jump' | 'parry' | 'thrust' | 'downAttack') => {
+    if (animationCooldown) return;
+    
     if (action === 'attack') {
-      setAnimation('attack');
+      triggerAnimation('attack');
     } else if (action === 'jump') {
-      setAnimation('jump');
+      triggerAnimation('jump');
     } else if (action === 'parry') {
-      setAnimation('middleParry');
+      triggerAnimation('middleParry');
+    } else if (action === 'thrust') {
+      triggerAnimation('thrust');
+    } else if (action === 'downAttack') {
+      triggerAnimation('downAttack');
     }
-  }, []);
+  }, [triggerAnimation, animationCooldown]);
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -204,35 +237,57 @@ const Game: React.FC = () => {
             </Button>
           </div>
           
-          {/* Action buttons */}
-          <div className="flex gap-4 justify-center mt-2">
-            <Button
-              variant="default"
-              size="lg"
-              className="bg-red-500 hover:bg-red-600"
-              onTouchStart={() => handleActionButton('attack')}
-              onMouseDown={() => handleActionButton('attack')}
-            >
-              Attack
-            </Button>
-            <Button
-              variant="default"
-              size="lg"
-              className="bg-green-500 hover:bg-green-600"
-              onTouchStart={() => handleActionButton('jump')}
-              onMouseDown={() => handleActionButton('jump')}
-            >
-              Jump
-            </Button>
-            <Button
-              variant="default"
-              size="lg"
-              className="bg-blue-500 hover:bg-blue-600"
-              onTouchStart={() => handleActionButton('parry')}
-              onMouseDown={() => handleActionButton('parry')}
-            >
-              Parry
-            </Button>
+          {/* Action buttons - Two rows for better organization */}
+          <div className="flex flex-col gap-2 items-center">
+            <div className="flex gap-4 justify-center">
+              <Button
+                variant="default"
+                size="lg"
+                className="bg-red-500 hover:bg-red-600"
+                onTouchStart={() => handleActionButton('attack')}
+                onMouseDown={() => handleActionButton('attack')}
+              >
+                Attack
+              </Button>
+              <Button
+                variant="default"
+                size="lg"
+                className="bg-green-500 hover:bg-green-600"
+                onTouchStart={() => handleActionButton('jump')}
+                onMouseDown={() => handleActionButton('jump')}
+              >
+                Jump
+              </Button>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600"
+                onTouchStart={() => handleActionButton('parry')}
+                onMouseDown={() => handleActionButton('parry')}
+              >
+                Parry
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-yellow-500 hover:bg-yellow-600"
+                onTouchStart={() => handleActionButton('thrust')}
+                onMouseDown={() => handleActionButton('thrust')}
+              >
+                Thrust
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-purple-500 hover:bg-purple-600"
+                onTouchStart={() => handleActionButton('downAttack')}
+                onMouseDown={() => handleActionButton('downAttack')}
+              >
+                Down
+              </Button>
+            </div>
           </div>
         </div>
       )}
