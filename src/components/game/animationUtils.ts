@@ -8,7 +8,7 @@ export const animations = {
   middleParry: { row: 1, frames: 1, startFrame: 0, duration: 400 },
   upParry: { row: 1, frames: 1, startFrame: 1, duration: 400 },
   downParry: { row: 1, frames: 1, startFrame: 2, duration: 400 },
-  attack: { row: 2, frames: 4, startFrame: 0, duration: 800 }, // Increased duration
+  attack: { row: 2, frames: 4, startFrame: 0, duration: 1200 }, // Increased duration
   thrust: { row: 3, frames: 1, startFrame: 0, duration: 400 },
   downAttack: { row: 3, frames: 1, startFrame: 1, duration: 400 },
   death: { row: 4, frames: 1, startFrame: 0, duration: 0 },
