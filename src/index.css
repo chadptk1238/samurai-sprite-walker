@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -112,7 +111,6 @@
 .samurai-sprite {
   width: 32px;
   height: 32px;
-  background-image: url('/lovable-uploads/4b5315b6-6111-48e9-8951-855f7cc6f638.png');
   background-repeat: no-repeat;
   image-rendering: pixelated;
   transform-origin: center;
