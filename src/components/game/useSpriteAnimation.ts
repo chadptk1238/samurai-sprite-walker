@@ -82,7 +82,7 @@ export const useSpriteAnimation = (
         animationStateRef.current.animationTimer = timer;
       }
       // Handle other animations
-      else if (animationStateRef.current.isJumping === false && animation !== 'jump') {
+      else if (!animationStateRef.current.isJumping) {
         setCurrentAnimation(animation);
         setFrame(0);
         animationStateRef.current.animationStartTime = Date.now();
@@ -108,7 +108,7 @@ export const useSpriteAnimation = (
     
     // Handle walking animation specifically
     if (isWalking && !animationStateRef.current.isJumping && 
-        !['attack', 'thrust', 'downAttack'].includes(currentAnimation) && 
+        !['attack', 'thrust', 'downAttack'].includes(currentAnimation as string) && 
         currentAnimation !== 'walk') {
       setCurrentAnimation('walk');
       setFrame(0);
