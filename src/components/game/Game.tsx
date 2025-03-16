@@ -5,8 +5,8 @@ import { useToast } from '@/components/ui/use-toast';
 import GameArea from './GameArea';
 import Controls from './Controls';
 import { useAnimationState } from './useAnimationState';
-import { useInputHandlers } from './useInputHandlers';
 import { useMovement } from './useMovement';
+import { useInputHandlers } from './useInputHandlers';
 
 // Game constants
 const GAME_WIDTH = 800;
@@ -25,7 +25,7 @@ const Game: React.FC = () => {
     triggerAnimation 
   } = useAnimationState();
   
-  // Movement state
+  // Fix the order - declare movement state first before using it
   const { 
     position, 
     direction, 
@@ -35,17 +35,12 @@ const Game: React.FC = () => {
     gameWidth: GAME_WIDTH,
     characterScale: CHARACTER_SCALE,
     movementSpeed: MOVEMENT_SPEED,
-    keysPressed: useInputHandlers({
-      triggerAnimation,
-      animationCooldown,
-      animation,
-      setIsWalking
-    }).keysPressed,
     animation,
-    animationCooldown
+    animationCooldown,
+    keysPressed: {} // Initialize with empty object, will update after useInputHandlers
   });
   
-  // Input handlers
+  // Input handlers - use setIsWalking after it's declared
   const { 
     keysPressed, 
     handleTouchStart, 
@@ -57,6 +52,19 @@ const Game: React.FC = () => {
     animation,
     setIsWalking
   });
+  
+  // Update keysPressed in useMovement
+  useEffect(() => {
+    // Update the keysPressed in the movement hook
+    useMovement({
+      gameWidth: GAME_WIDTH,
+      characterScale: CHARACTER_SCALE,
+      movementSpeed: MOVEMENT_SPEED,
+      animation,
+      animationCooldown,
+      keysPressed
+    });
+  }, [keysPressed, animation, animationCooldown]);
   
   // Show welcome toast on initial load
   useEffect(() => {

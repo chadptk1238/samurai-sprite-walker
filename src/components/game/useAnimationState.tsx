@@ -1,7 +1,7 @@
 
 import { useState, useCallback } from 'react';
 
-type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump' | 'crouch';
+export type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump' | 'crouch';
 
 export function useAnimationState() {
   const [animation, setAnimation] = useState<AnimationType>('idle');

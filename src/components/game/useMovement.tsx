@@ -1,12 +1,13 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { AnimationType } from './useAnimationState';
 
 interface UseMovementProps {
   gameWidth: number;
   characterScale: number;
   movementSpeed: number;
   keysPressed: Record<string, boolean>;
-  animation: string;
+  animation: AnimationType;
   animationCooldown: boolean;
 }
 
@@ -21,6 +22,10 @@ export function useMovement({
   const [position, setPosition] = useState(gameWidth / 2);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
   const [isWalking, setIsWalking] = useState(false);
+  
+  // Use ref to track current keysPressed
+  const keysPressedRef = useRef(keysPressed);
+  keysPressedRef.current = keysPressed;
 
   // Process movement based on pressed keys
   useEffect(() => {
@@ -33,14 +38,15 @@ export function useMovement({
       
       setPosition(prevPos => {
         let newPos = prevPos;
+        const currentKeysPressed = keysPressedRef.current;
         
-        if ((keysPressed['ArrowLeft'] || keysPressed['a']) && 
+        if ((currentKeysPressed['ArrowLeft'] || currentKeysPressed['a']) && 
             canMove && !animationCooldown) {
           newPos = Math.max(16 * characterScale, prevPos - movementSpeed);
           // Only change direction when actually moving
           setDirection('left');
           walking = true;
-        } else if ((keysPressed['ArrowRight'] || keysPressed['d']) && 
+        } else if ((currentKeysPressed['ArrowRight'] || currentKeysPressed['d']) && 
                   canMove && !animationCooldown) {
           newPos = Math.min(gameWidth - (16 * characterScale), prevPos + movementSpeed);
           // Only change direction when actually moving
@@ -68,7 +74,7 @@ export function useMovement({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [keysPressed, animationCooldown, animation, gameWidth, characterScale, movementSpeed]);
+  }, [animation, animationCooldown, gameWidth, characterScale, movementSpeed]);
 
   return {
     position,

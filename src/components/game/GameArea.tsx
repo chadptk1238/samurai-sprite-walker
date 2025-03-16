@@ -1,12 +1,13 @@
 
 import React from 'react';
 import Samurai from '../Samurai';
+import { AnimationType } from './useAnimationState';
 
 interface GameAreaProps {
   position: number;
   direction: 'left' | 'right';
   isWalking: boolean;
-  animation: string;
+  animation: AnimationType;
   gameHeight: number;
   characterScale: number;
 }
