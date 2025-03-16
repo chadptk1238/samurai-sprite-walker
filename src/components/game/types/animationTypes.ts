@@ -2,7 +2,6 @@ import { AnimationType } from '../useAnimationState';
 
 export interface AnimationState {
   isJumping: boolean;
-  isAttacking: boolean; // Add this new property
   currentAnimation: AnimationType;
   animationTimer: number | null;
   animationFrameId: number | null;
