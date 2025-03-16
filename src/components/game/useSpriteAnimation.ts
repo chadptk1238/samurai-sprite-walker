@@ -146,8 +146,8 @@ export const useSpriteAnimation = (
       };
       
       animationStateRef.current.animationFrameId = requestAnimationFrame(updateFrame);
-    } else if (currentAnimation === 'attack') {
-      // Fixed animation sequence for attack - only 2 frames
+    } else if (currentAnimation === 'attack' || currentAnimation === 'thrust' || currentAnimation === 'downAttack') {
+      // Fixed animation sequence for attack animations
       const currentAnimData = animations[currentAnimation];
       const frameInterval = currentAnimData.duration / currentAnimData.frames;
       const startTime = animationStateRef.current.animationStartTime || Date.now();
