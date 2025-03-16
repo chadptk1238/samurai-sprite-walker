@@ -33,27 +33,39 @@ export const updateWalkingFrames = (
 export const updateAttackFrames = (
   currentAnimation: AnimationType,
   setFrame: React.Dispatch<React.SetStateAction<number>>,
-  animationStateRef: React.RefObject<AnimationState>
+  animationStateRef: React.RefObject<AnimationState>,
+  onAnimationComplete?: () => void
 ): number => {
   const currentAnimData = animations[currentAnimation];
   const frameInterval = currentAnimData.duration / currentAnimData.frames;
   const startTime = animationStateRef.current?.animationStartTime || Date.now();
+  let lastFrameTime = 0;
   
   const updateAttackFrame = (timestamp: number) => {
-    const elapsed = Date.now() - startTime;
-    const frameIndex = Math.min(
-      Math.floor(elapsed / frameInterval),
-      currentAnimData.frames - 1
-    );
+    if (!lastFrameTime) lastFrameTime = timestamp;
     
-    setFrame(frameIndex);
+    const elapsed = timestamp - lastFrameTime;
+    const totalElapsed = Date.now() - startTime;
     
-    // Only continue the animation if we haven't reached the end
-    if (elapsed < currentAnimData.duration) {
-      return requestAnimationFrame(updateAttackFrame);
+    if (elapsed > frameInterval) {
+      const frameIndex = Math.min(
+        Math.floor(totalElapsed / frameInterval),
+        currentAnimData.frames - 1
+      );
+      
+      setFrame(frameIndex);
+      lastFrameTime = timestamp;
+      
+      // Check if we've reached the last frame
+      if (frameIndex >= currentAnimData.frames - 1 && totalElapsed >= currentAnimData.duration) {
+        if (onAnimationComplete) {
+          onAnimationComplete();
+        }
+        return 0;
+      }
     }
     
-    return 0;
+    return requestAnimationFrame(updateAttackFrame);
   };
   
   return requestAnimationFrame(updateAttackFrame);

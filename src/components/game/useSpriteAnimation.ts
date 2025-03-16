@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { AnimationType } from './useAnimationState';
 import { useAnimationStateManager } from './animations/useAnimationStateManager';
 import { 
@@ -25,10 +25,19 @@ export const useSpriteAnimation = (
     setAnimationTimer
   } = useAnimationStateManager(initialAnimation);
 
+  // Callback for when attack animation completes
+  const handleAttackComplete = useCallback(() => {
+    if (isWalking) {
+      setCurrentAnimation('walk');
+    } else {
+      setCurrentAnimation('idle');
+    }
+  }, [isWalking, setCurrentAnimation]);
+
   // Handle animation changes
   const updateAnimation = (animation: AnimationType) => {
     // If we're already in the requested animation, we can allow re-triggering for attack and jump
-    const canRestart = animation === 'attack' || animation === 'jump';
+    const canRestart = animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack';
     
     // Skip if the animation hasn't changed and isn't restartable
     if (animation === animationStateRef.current.currentAnimation && !canRestart) {
@@ -53,14 +62,12 @@ export const useSpriteAnimation = (
         setCurrentAnimation(animation);
         setFrame(0);
         animationStateRef.current.animationStartTime = Date.now();
-        setAnimationTimer(isWalking, animation);
       }
       // Handle other animations
       else if (!animationStateRef.current.isJumping) {
         setCurrentAnimation(animation);
         setFrame(0);
         animationStateRef.current.animationStartTime = Date.now();
-        setAnimationTimer(isWalking, animation);
       }
       
       // Update the current animation in ref
@@ -69,7 +76,7 @@ export const useSpriteAnimation = (
     
     // Handle walking animation specifically
     if (isWalking && !animationStateRef.current.isJumping && 
-        !['attack', 'thrust', 'downAttack'].includes(currentAnimation as string) && 
+        !['attack', 'thrust', 'downAttack'].includes(animation) && 
         currentAnimation !== 'walk') {
       setCurrentAnimation('walk');
       setFrame(0);
@@ -91,8 +98,8 @@ export const useSpriteAnimation = (
       animationFrameId = updateWalkingFrames(currentAnimation, setFrame, animationStateRef);
       animationStateRef.current.animationFrameId = animationFrameId;
     } else if (currentAnimation === 'attack' || currentAnimation === 'thrust' || currentAnimation === 'downAttack') {
-      // Fixed animation sequence for attack animations
-      animationFrameId = updateAttackFrames(currentAnimation, setFrame, animationStateRef);
+      // Fixed animation sequence for attack animations with callback for completion
+      animationFrameId = updateAttackFrames(currentAnimation, setFrame, animationStateRef, handleAttackComplete);
       animationStateRef.current.animationFrameId = animationFrameId;
     } else if (currentAnimation === 'jump' && animationStateRef.current.isJumping) {
       // Improved jump animation with physics
@@ -104,7 +111,7 @@ export const useSpriteAnimation = (
     return () => {
       clearAnimations();
     };
-  }, [currentAnimation, isWalking]);
+  }, [currentAnimation, isWalking, handleAttackComplete]);
 
   return {
     frame,
