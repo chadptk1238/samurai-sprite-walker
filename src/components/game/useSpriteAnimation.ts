@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { AnimationType } from './useAnimationState';
 import { useAnimationStateManager } from './animations/useAnimationStateManager';
 import { 
@@ -34,8 +34,8 @@ export const useSpriteAnimation = (
     }
   }, [isWalking, setCurrentAnimation]);
 
-  // Handle animation changes
-  const updateAnimation = (animation: AnimationType) => {
+  // Handle animation changes - defined BEFORE the useEffect that uses it
+  const updateAnimation = useCallback((animation: AnimationType) => {
     // If we're already in the requested animation, we can allow re-triggering for attack and jump
     const canRestart = animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack';
     
@@ -84,7 +84,7 @@ export const useSpriteAnimation = (
       setCurrentAnimation('idle');
       setFrame(0);
     }
-  };
+  }, [isWalking, currentAnimation, setCurrentAnimation, setFrame, clearAnimations, animationStateRef]);
 
   // Run animation frames
   useEffect(() => {
@@ -111,7 +111,7 @@ export const useSpriteAnimation = (
     return () => {
       clearAnimations();
     };
-  }, [currentAnimation, isWalking, handleAttackComplete]);
+  }, [currentAnimation, isWalking, handleAttackComplete, clearAnimations, setFrame, setCurrentAnimation, setJumpHeight, animationStateRef]);
 
   return {
     frame,

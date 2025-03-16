@@ -38,30 +38,34 @@ export const updateAttackFrames = (
 ): number => {
   const currentAnimData = animations[currentAnimation];
   const frameInterval = currentAnimData.duration / currentAnimData.frames;
-  const startTime = animationStateRef.current?.animationStartTime || Date.now();
+  
+  // Reset frame to 0 at the start of the animation
+  setFrame(0);
+  
+  let frameCount = 0;
   let lastFrameTime = 0;
   
   const updateAttackFrame = (timestamp: number) => {
     if (!lastFrameTime) lastFrameTime = timestamp;
     
     const elapsed = timestamp - lastFrameTime;
-    const totalElapsed = Date.now() - startTime;
     
     if (elapsed > frameInterval) {
-      const frameIndex = Math.min(
-        Math.floor(totalElapsed / frameInterval),
-        currentAnimData.frames - 1
-      );
+      // Increment frame count
+      frameCount++;
       
-      setFrame(frameIndex);
+      // Update the visible frame
+      const newFrame = Math.min(frameCount, currentAnimData.frames - 1);
+      setFrame(newFrame);
+      
       lastFrameTime = timestamp;
       
-      // Check if we've reached the last frame
-      if (frameIndex >= currentAnimData.frames - 1 && totalElapsed >= currentAnimData.duration) {
+      // Check if we've completed all frames
+      if (frameCount >= currentAnimData.frames) {
         if (onAnimationComplete) {
           onAnimationComplete();
         }
-        return 0;
+        return 0; // Stop the animation
       }
     }
     
