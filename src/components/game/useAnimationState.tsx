@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { animations } from './animationUtils';
 
 export type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump' | 'crouch';
 
@@ -8,23 +9,27 @@ export function useAnimationState() {
   
   // Animation cooldown handler
   const triggerAnimation = useCallback((animType: AnimationType) => {
-    if (animationCooldown) return;
+    if (animationCooldown) {
+      console.log(`Animation cooldown active, skipping ${animType}`);
+      return;
+    }
     
     // Don't trigger new animations if crouching except for standing up
     if (animation === 'crouch' && animType !== 'idle') return;
     
+    console.log(`Triggering animation: ${animType}`);
     setAnimation(animType);
     setAnimationCooldown(true);
     
-    // Set cooldown timer based on animation type
-    const cooldownTime = 
-      animType === 'attack' ? 800 : // Longer cooldown for attack
-      animType === 'jump' ? 600 : 
-      animType === 'thrust' || animType === 'downAttack' ? 500 : 
-      animType === 'crouch' ? 200 :
-      300;
+    // Use the actual animation duration from our config
+    const animDuration = animations[animType]?.duration || 500;
+    // Add a small buffer to ensure animation completes
+    const cooldownTime = animDuration + 100;
+    
+    console.log(`Setting cooldown for ${cooldownTime}ms`);
     
     setTimeout(() => {
+      console.log(`Cooldown for ${animType} ended`);
       setAnimationCooldown(false);
     }, cooldownTime);
   }, [animationCooldown, animation]);
