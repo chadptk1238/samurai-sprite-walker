@@ -1,174 +1,116 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimationType } from './useAnimationState';
-import { useAnimationStateManager } from './animations/useAnimationStateManager';
-import { 
-  updateWalkingFrames, 
-  updateAttackFrames, 
-  updateJumpFrames 
-} from './animations/frameManager';
+import { animations, calculateFrame, isAnimationComplete, getBackgroundPosition } from './animationUtils';
 import { SpriteAnimationResult } from './types/animationTypes';
 
 export const useSpriteAnimation = (
   initialAnimation: AnimationType = 'idle',
   isWalking: boolean
 ): SpriteAnimationResult => {
-  const {
-    frame,
-    setFrame,
-    currentAnimation,
-    setCurrentAnimation,
-    jumpHeight,
-    setJumpHeight,
-    animationStateRef,
-    clearAnimations,
-    setAnimationTimer
-  } = useAnimationStateManager(initialAnimation);
-
-  // Flag to track if an animation is currently running
-  const isAnimatingRef = useRef(false);
-
-  // Callback for when attack animation completes
-  const handleAttackComplete = useCallback(() => {
-    console.log('Attack animation completed, returning to', isWalking ? 'walk' : 'idle');
+  // State for tracking animation
+  const [currentAnimation, setCurrentAnimation] = useState<AnimationType>(initialAnimation);
+  const [frame, setFrame] = useState(0);
+  const [jumpHeight, setJumpHeight] = useState(0);
+  
+  // Animation tracking refs
+  const animStartTimeRef = useRef<number>(Date.now());
+  const requestIdRef = useRef<number | null>(null);
+  const isActionAnimationRef = useRef<boolean>(false);
+  
+  // Clean up animation frame
+  const cleanupAnimation = useCallback(() => {
+    if (requestIdRef.current) {
+      cancelAnimationFrame(requestIdRef.current);
+      requestIdRef.current = null;
+    }
+  }, []);
+  
+  // Update the animation
+  const updateAnimation = useCallback((animation: AnimationType) => {
+    // Is this an action animation?
+    const isActionAnim = ['attack', 'jump', 'thrust', 'downAttack'].includes(animation);
     
-    // Clear the animating flag
-    isAnimatingRef.current = false;
+    // Don't interrupt action animations in progress
+    if (isActionAnimationRef.current && isActionAnim) {
+      return;
+    }
     
-    clearAnimations();
+    // Clean up existing animation
+    cleanupAnimation();
     
-    if (isWalking) {
+    // Set new animation
+    setCurrentAnimation(animation);
+    animStartTimeRef.current = Date.now();
+    
+    // Track if this is an action animation
+    isActionAnimationRef.current = isActionAnim;
+    
+    // Reset jump height if this is a jump
+    if (animation === 'jump') {
+      setJumpHeight(0);
+    }
+  }, [cleanupAnimation]);
+  
+  // Animation loop
+  useEffect(() => {
+    // Ensure walking animation is set if walking
+    if (isWalking && !isActionAnimationRef.current && currentAnimation !== 'walk') {
       setCurrentAnimation('walk');
-    } else {
+      animStartTimeRef.current = Date.now();
+    }
+    
+    // Or idle if not walking and no action animation
+    if (!isWalking && !isActionAnimationRef.current && currentAnimation !== 'idle') {
       setCurrentAnimation('idle');
     }
     
-    // Reset animation state
-    if (animationStateRef.current) {
-      animationStateRef.current.currentAnimation = isWalking ? 'walk' : 'idle';
-    }
-  }, [isWalking, setCurrentAnimation, clearAnimations, animationStateRef]);
-
-  // Handle animation changes
-  const updateAnimation = useCallback((animation: AnimationType) => {
-    console.log(`updateAnimation called with: ${animation}, current: ${animationStateRef.current?.currentAnimation}`);
-    
-    // Skip if we're already animating an attack or jump and trying to start a new one
-    const isActionAnimation = animation === 'attack' || animation === 'jump' || animation === 'thrust' || animation === 'downAttack';
-    
-    // Skip if already in action animation
-    if (isActionAnimation && isAnimatingRef.current) {
-      console.log('Already animating, skipping new animation request');
-      return;
-    }
-    
-    // Skip if the animation hasn't changed and isn't an action that should be restartable
-    if (animation === animationStateRef.current?.currentAnimation && !isActionAnimation) {
-      console.log('Animation unchanged and not restartable, skipping');
-      return;
-    }
-    
-    // Set animating flag for action animations
-    if (isActionAnimation) {
-      isAnimatingRef.current = true;
-    }
-    
-    // Clear any existing animation
-    clearAnimations();
-    console.log('Cleared existing animations');
-    
-    // Update the current animation in ref first
-    if (animationStateRef.current) {
-      animationStateRef.current.currentAnimation = animation;
-      animationStateRef.current.animationStartTime = Date.now();
-    }
-    
-    // For attack animations, always start from the beginning
-    if (animation === 'attack' || animation === 'thrust' || animation === 'downAttack') {
-      console.log('Starting attack animation from beginning');
-      setCurrentAnimation(animation);
-      setFrame(0);
-    } 
-    // Special case for jump animation
-    else if (animation === 'jump') {
-      console.log('Starting jump animation');
-      if (animationStateRef.current) {
-        animationStateRef.current.isJumping = true;
+    // Main animation loop
+    const animate = () => {
+      // Calculate current frame based on time
+      const newFrame = calculateFrame(currentAnimation, animStartTimeRef.current);
+      setFrame(newFrame);
+      
+      // Handle jump animation
+      if (currentAnimation === 'jump') {
+        const jumpData = animations.jump;
+        const elapsed = Date.now() - animStartTimeRef.current;
+        const progress = Math.min(elapsed / jumpData.duration, 1);
+        const jumpCurve = Math.sin(progress * Math.PI);
+        setJumpHeight(50 * jumpCurve); // 50 is max height
       }
-      setCurrentAnimation('jump');
-      setFrame(0);
-    }
-    // Handle other animations
-    else if (!animationStateRef.current?.isJumping) {
-      console.log(`Setting animation to ${animation}`);
-      setCurrentAnimation(animation);
-      setFrame(0);
-    }
-    
-    // Prevent walking animation from taking precedence when action animations are triggered
-    if (!isActionAnimation) {
-      // Handle walking animation specifically
-      if (isWalking && !animationStateRef.current?.isJumping && 
-          currentAnimation !== 'walk') {
-        console.log('Switching to walk animation due to isWalking');
-        setCurrentAnimation('walk');
-        setFrame(0);
-      } else if (!isWalking && currentAnimation === 'walk') {
-        console.log('Switching to idle animation since not walking');
-        setCurrentAnimation('idle');
-        setFrame(0);
+      
+      // Check if action animation is complete
+      if (isActionAnimationRef.current && isAnimationComplete(currentAnimation, animStartTimeRef.current)) {
+        isActionAnimationRef.current = false;
+        
+        // Reset to appropriate animation
+        if (isWalking) {
+          setCurrentAnimation('walk');
+        } else {
+          setCurrentAnimation('idle');
+        }
+        
+        animStartTimeRef.current = Date.now();
+        
+        // Reset jump height if needed
+        if (currentAnimation === 'jump') {
+          setJumpHeight(0);
+        }
       }
-    }
-  }, [isWalking, currentAnimation, setCurrentAnimation, setFrame, clearAnimations, animationStateRef]);
-
-  // Run animation frames
-  useEffect(() => {
-    console.log(`Animation effect triggered: ${currentAnimation}, isWalking: ${isWalking}`);
+      
+      // Continue animation loop
+      requestIdRef.current = requestAnimationFrame(animate);
+    };
     
-    // Cancel any existing animation
-    clearAnimations();
-    
-    let animationFrameId: number | null = null;
-    
-    if (currentAnimation === 'walk' && isWalking) {
-      console.log('Starting walking animation');
-      animationFrameId = updateWalkingFrames(currentAnimation, setFrame, animationStateRef);
-      if (animationStateRef.current) {
-        animationStateRef.current.animationFrameId = animationFrameId;
-      }
-    } else if (currentAnimation === 'attack' || currentAnimation === 'thrust' || currentAnimation === 'downAttack') {
-      console.log(`Starting attack animation: ${currentAnimation}`);
-      animationFrameId = updateAttackFrames(currentAnimation, setFrame, animationStateRef, handleAttackComplete);
-      if (animationStateRef.current) {
-        animationStateRef.current.animationFrameId = animationFrameId;
-      }
-    } else if (currentAnimation === 'jump' && animationStateRef.current?.isJumping) {
-      console.log('Starting jump animation');
-      animationFrameId = updateJumpFrames(setJumpHeight, setCurrentAnimation, animationStateRef, isWalking);
-      if (animationStateRef.current) {
-        animationStateRef.current.animationFrameId = animationFrameId;
-      }
-    }
+    // Start animation loop
+    requestIdRef.current = requestAnimationFrame(animate);
     
     // Cleanup function
     return () => {
-      console.log('Cleaning up animation effect');
-      
-      // Don't clear animating flag here, as we want it to persist across effect cleanups
-      // for action animations
-      
-      clearAnimations();
+      cleanupAnimation();
     };
-  }, [
-    currentAnimation, 
-    isWalking, 
-    handleAttackComplete, 
-    clearAnimations, 
-    setFrame, 
-    setCurrentAnimation, 
-    setJumpHeight, 
-    animationStateRef
-  ]);
-
+  }, [currentAnimation, isWalking, cleanupAnimation]);
+  
   return {
     frame,
     currentAnimation,
