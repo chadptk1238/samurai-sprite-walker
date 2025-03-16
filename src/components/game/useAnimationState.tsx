@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 
 export type AnimationType = 'idle' | 'walk' | 'middleParry' | 'upParry' | 'downParry' | 'attack' | 'thrust' | 'downAttack' | 'death' | 'jump' | 'crouch';
@@ -19,7 +18,7 @@ export function useAnimationState() {
     
     // Set cooldown timer based on animation type
     const cooldownTime = 
-      animType === 'attack' ? 500 : 
+      animType === 'attack' ? 600 : // Increased from 500 to 600 to match animation duration
       animType === 'jump' ? 600 : 
       animType === 'thrust' || animType === 'downAttack' ? 400 : 
       animType === 'crouch' ? 200 :
